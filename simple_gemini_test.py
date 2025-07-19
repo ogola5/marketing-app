@@ -16,7 +16,7 @@ async def test_gemini():
             api_key=gemini_api_key,
             session_id=session_id,
             system_message="You are a helpful marketing assistant."
-        ).with_model("gemini", "gemini-2.5-pro-preview-05-06").with_max_tokens(200)
+        ).with_model("gemini", "gemini-1.5-flash").with_max_tokens(200)
         
         # Simple test message
         user_message = UserMessage(text="Generate a short email subject line for a SaaS product launch.")
