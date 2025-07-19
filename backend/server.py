@@ -294,7 +294,7 @@ Generate content that is professional, compelling, and tailored to this specific
             api_key=gemini_api_key,
             session_id=session_id,
             system_message=system_message
-        ).with_model("gemini", "gemini-2.5-pro-preview-05-06").with_max_tokens(4000)
+        ).with_model("gemini", "gemini-1.5-flash").with_max_tokens(4000)
         
         # Create campaign generation prompt based on type
         if request.campaign_type == "email":
