@@ -135,6 +135,11 @@ async def google_callback(code: str):
             if token_response.status_code != 200:
                 raise HTTPException(status_code=400, detail="Failed to get access token")
             
+            # Check response content type
+            content_type = token_response.headers.get("Content-Type", "")
+            if "application/json" not in content_type:
+                raise HTTPException(status_code=400, detail="Invalid response format from Google")
+
             tokens = token_response.json()
             access_token = tokens.get("access_token")
             
