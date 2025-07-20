@@ -1,5 +1,5 @@
-// services/index.js
-export { default as api } from './api';
+// src/services/index.js
+export * from './api';
 export * from './authService';
 export * from './campaignService';
-export * from './storageService';
+export { storageService } from './storageService';

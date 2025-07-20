@@ -1,89 +1,80 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react';
-import { authService, storageService } from '../services';
+// src/contexts/AuthContext.js
+import { createContext, useState, useEffect } from 'react';
+import { storageService, authService } from '../services';
 
-export const AuthContext = createContext(null);
+export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(storageService.getAuthToken());
+  const [user, setUser] = useState(storageService.getUser() || null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const fetchProfile = useCallback(async () => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const profile = await authService.getProfile();
-      setUser(profile);
-    } catch (error) {
-      console.error('Failed to fetch profile:', error);
-      logout();
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
-
-  const login = useCallback((userData, userToken) => {
-    setUser(userData);
-    setToken(userToken);
-    storageService.setAuthToken(userToken);
-    storageService.setUser(userData);
-  }, []);
-
-  const logout = useCallback(() => {
-    setUser(null);
-    setToken(null);
-    authService.logout();
-  }, []);
-
-  const updateUser = useCallback((updates) => {
-    setUser(prev => ({ ...prev, ...updates }));
-    storageService.setUser({ ...user, ...updates });
-  }, [user]);
-
+  // Initialize auth state
   useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
+    const initializeAuth = async () => {
+      await authService.initialize();
+      const currentUser = authService.getCurrentUser();
+      setUser(currentUser);
+      setLoading(false);
+    };
+    initializeAuth();
+  }, []);
 
   // Handle Google OAuth callback
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const callbackToken = urlParams.get('token');
-    const userEmail = urlParams.get('user');
-    const userName = urlParams.get('name');
-    const userPicture = urlParams.get('picture');
-    const error = urlParams.get('error');
-    
-    if (error) {
-      console.error('Auth error:', error);
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (callbackToken && userEmail && userName) {
-      const userData = {
-        email: userEmail,
-        name: userName,
-        picture: userPicture || null,
-        isOnboarded: false
-      };
-      
-      login(userData, callbackToken);
-      window.history.replaceState({}, document.title, window.location.pathname);
+    const code = urlParams.get('code');
+    if (code) {
+      handleGoogleCallback(code);
     }
-  }, [login]);
+  }, []);
 
-  const value = {
-    user,
-    token,
-    loading,
-    login,
-    logout,
-    updateUser,
-    fetchProfile
+  const handleGoogleCallback = async (code) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`http://localhost:8001/api/auth/google/callback?code=${code}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to process Google OAuth callback');
+      }
+      const userData = await response.json();
+      login(userData);
+      // Clear URL params after login
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch (err) {
+      console.error('Google OAuth callback failed:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const login = (userData) => {
+    try {
+      storageService.setUser(userData); // Now works with the alias
+      setUser(userData);
+      authService.loginSuccess(userData, userData.token);
+    } catch (error) {
+      console.error('Failed to set user in storage:', error);
+      setError(error.message);
+    }
+  };
+
+  const logout = () => {
+    try {
+      storageService.removeUser();
+      setUser(null);
+      authService.logout();
+    } catch (error) {
+      console.error('Failed to logout:', error);
+      setError(error.message);
+    }
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, login, logout, loading, error }}>
       {children}
     </AuthContext.Provider>
   );

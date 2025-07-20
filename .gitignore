@@ -34,6 +34,7 @@ dist
 
 *token.json*
 *credentials.json*
+.env
 
 # Logs and debug files
 npm-debug.log*
@@ -51,6 +52,8 @@ __pycache__/
 *pyc*
 venv/
 .venv/
+.market/
+
 
 # Development tools
 chainlit.md
