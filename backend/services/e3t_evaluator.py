@@ -1,7 +1,7 @@
 # services/e3t_evaluator.py
 
 from typing import Dict
-from models.e3t_model import E3TScore
+from models.e3t_model import E3TModel
 from services.intent_matcher import IntentMatcher
 from services.geo_intent_resolver import GeoIntentResolver
 
@@ -10,7 +10,7 @@ class E3TEvaluator:
         self.intent_matcher = IntentMatcher()
         self.geo_resolver = GeoIntentResolver()
 
-    def evaluate(self, metadata: Dict, user_query: str, request_headers: Dict) -> E3TScore:
+    def evaluate(self, metadata: Dict, user_query: str, request_headers: Dict) -> E3TModel:
         """
         metadata: dict containing title, meta, body content, schema, etc.
         user_query: user search input
@@ -25,7 +25,7 @@ class E3TEvaluator:
 
         total_score = (expertise_score + engagement_score + trust_score) / 3.0
 
-        return E3TScore(
+        return E3TModel(
             expertise=expertise_score,
             engagement=engagement_score,
             trust=trust_score,

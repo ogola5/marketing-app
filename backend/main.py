@@ -1,18 +1,17 @@
-# main.py
 from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
 import logging
 import uvicorn
 
-# Import our organized modules
-from config import settings, connect_to_mongo, close_mongo_connection, create_indexes
-from routes import (
-    auth_router, 
-    campaigns_router, 
-    leads_router, 
-    dashboard_router, 
-    system_router
-)
+# Import modules based on updated structure
+from config.settings import settings
+from config.database import connect_to_mongo, close_mongo_connection, create_indexes
+from routes.auth import router as auth_router  # Updated to match auth.py
+from routes.campaigns import router as campaigns_router
+from routes.dashboard import router as dashboard_router
+from routes.domain import router as domain_router
+from routes.seo import router as seo_router
+from routes.system import router as system_router
 
 # Create the main FastAPI app
 app = FastAPI(
@@ -28,9 +27,10 @@ api_router = APIRouter(prefix="/api")
 
 # Include all route modules
 api_router.include_router(auth_router, tags=["Authentication"])
-api_router.include_router(campaigns_router, tags=["Campaigns"]) 
-api_router.include_router(leads_router, tags=["Leads"])
+api_router.include_router(campaigns_router, tags=["Campaigns"])
 api_router.include_router(dashboard_router, tags=["Dashboard"])
+api_router.include_router(domain_router, tags=["Domain"])
+api_router.include_router(seo_router, tags=["SEO"])
 api_router.include_router(system_router, tags=["System"])
 
 # Include the main API router in the app
@@ -63,7 +63,7 @@ async def startup_event():
         await connect_to_mongo()
         logger.info("✅ Database connection established")
         
-        # Create database indexes for better performance
+        # Create database indexes
         await create_indexes()
         logger.info("✅ Database indexes created")
         
@@ -74,6 +74,7 @@ async def startup_event():
         logger.info(f"📧 Email Service: {'✅ Configured' if settings.sender_email else '❌ Not configured'}")
         logger.info(f"🌐 CORS Origins: {', '.join(settings.allowed_origins)}")
         logger.info(f"🏃 Server running on {settings.host}:{settings.port}")
+        logger.info(f"🤖 HF API: {'✅ Configured' if settings.hf_token else '❌ Not configured'}")
         
     except Exception as e:
         logger.error(f"❌ Startup failed: {str(e)}")
@@ -109,9 +110,11 @@ async def root():
         "endpoints": {
             "health": "/api/health",
             "auth": "/api/auth/*",
-            "campaigns": "/api/campaigns/*", 
-            "leads": "/api/leads/*",
-            "dashboard": "/api/dashboard"
+            "campaigns": "/api/campaigns/*",
+            "dashboard": "/api/dashboard/*",
+            "domain": "/api/domain/*",
+            "seo": "/api/seo/*",
+            "system": "/api/system/*"
         }
     }
 
@@ -121,6 +124,6 @@ if __name__ == "__main__":
         "main:app",
         host=settings.host,
         port=settings.port,
-        reload=True,  # Enable auto-reload in development
+        reload=True,
         log_level="info"
     )

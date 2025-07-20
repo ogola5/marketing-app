@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8001
     
+    # Hugging Face API Configuration
+    hf_token: Optional[str] = os.environ.get("HF_TOKEN")  # Added to support utils/hf_api.py
+
     class Config:
         env_file = ".env"
         case_sensitive = False

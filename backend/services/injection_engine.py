@@ -1,21 +1,27 @@
 # services/injection_engine.py
-
-from utils.schema_generator import generate_local_schema
-from utils.content_optimizer import optimize_content
+from utils.schema_generator import SchemaGenerator
+from utils.content_optimizer import ContentOptimizer
 
 class InjectionEngine:
     def __init__(self):
-        pass
+        self.schema_generator = SchemaGenerator()
+        self.content_optimizer = ContentOptimizer()  # Initialize the content optimizer
 
-    def inject_keywords_and_schema(self, content: str, business_info: dict, region: str) -> dict:
+    def inject_keywords_and_schema(self, content: str, business_info: dict, region: str, use_ai: bool = False) -> dict:
         """
         Optimizes and injects keywords + Schema markup into the site metadata
         content: original body or HTML content
         business_info: includes type, name, service category
         region: location like 'Kilifi' or 'Mombasa'
+        use_ai: whether to use AI-enhanced optimization
         """
-        optimized = optimize_content(content, region=region, category=business_info.get("category"))
-        schema = generate_local_schema(business_info, region)
+        optimized = self.content_optimizer.optimize_content(
+            content=content,
+            region=region,
+            category=business_info.get("category"),
+            use_ai=use_ai
+        )
+        schema = self.schema_generator.generate_local_schema(business_info, region, use_ai)
 
         return {
             "optimized_content": optimized,

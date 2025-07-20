@@ -1,8 +1,7 @@
 # routes/seo.py
-
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, HttpUrl
-from config.db import get_database
+from config.database import db  # Updated import
 from bson import ObjectId
 import httpx
 from bs4 import BeautifulSoup
@@ -21,7 +20,7 @@ class SEOData(BaseModel):
     analyzed_at: datetime
 
 @router.post("/analyze", response_model=SEOData)
-async def analyze_seo(request: SEORequest, db=Depends(get_database)):
+async def analyze_seo(request: SEORequest):
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.get(request.url)
