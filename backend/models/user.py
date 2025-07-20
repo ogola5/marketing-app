@@ -11,7 +11,11 @@ class User(BaseModel):
     name: str
     picture: Optional[str] = None
     session_token: Optional[str] = None
+    token_expires_at: Optional[datetime] = None  # Added for token expiration
+    password_hash: Optional[str] = None  # Added for password authentication
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_login: Optional[datetime] = None  # Added to track last login
+    auth_provider: str = "email"  # Added to track auth method: "email" or "google"
     
     # Business profile fields
     business_type: Optional[str] = None
@@ -20,6 +24,7 @@ class User(BaseModel):
     target_audience: Optional[str] = None
     campaign_goal: Optional[str] = None
     onboarding_completed: bool = False
+    onboarding_date: Optional[datetime] = None  # Added to track when onboarding was completed
 
 class OnboardingData(BaseModel):
     """Model for user business onboarding data"""
@@ -32,5 +37,5 @@ class OnboardingData(BaseModel):
 class SimpleAuthRequest(BaseModel):
     """Model for simple email/password authentication"""
     email: str
-    password: Optional[str] = None
-    name: Optional[str] = None
+    password: str  # Made required - was Optional
+    name: Optional[str] = None  # Only optional for login, required for register

@@ -33,6 +33,11 @@ async def create_indexes():
         # User indexes
         await db.users.create_index("email", unique=True)
         await db.users.create_index("session_token")
+        await db.users.create_index([("token_expires_at", 1)])  # Added for token expiration queries
+        
+        # OAuth states indexes (for CSRF protection)
+        await db.oauth_states.create_index("state", unique=True)
+        await db.oauth_states.create_index([("expires_at", 1)], expireAfterSeconds=0)  # Auto-delete expired states
         
         # Campaign indexes
         await db.campaigns.create_index([("user_id", 1), ("created_at", -1)])

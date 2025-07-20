@@ -2,263 +2,112 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import httpx
-import uuid
 import logging
+from typing import Dict, Any
+from datetime import datetime
 
-from config import settings, db
-from models import User, OnboardingData, SimpleAuthRequest
+from config import settings # Assuming 'settings' holds your frontend_url etc.
+from models.user import User, OnboardingData, SimpleAuthRequest
+from services.auth_service import AuthService
 
-router = APIRouter()
+# --- Setup ---
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 security = HTTPBearer()
+auth_service = AuthService()
+logger = logging.getLogger(__name__) # Use logger for routes
 
-# Authentication dependency
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-    user = await db.users.find_one({"session_token": token})
+# --- Dependency for Authenticated Routes ---
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
+    """Dependency to get the current user from a bearer token, now with expiration check."""
+    logger.info(f"AuthRoutes: get_current_user dependency called. Token received: {credentials.credentials[:10]}...")
+    user = await auth_service.get_user_by_token(credentials.credentials)
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid authentication token")
-    return User(**user)
+        logger.warning(f"AuthRoutes: get_current_user failed. Invalid or expired token: {credentials.credentials[:10]}...")
+        raise HTTPException(status_code=401, detail="Invalid or expired authentication token")
+    logger.info(f"AuthRoutes: get_current_user successful. User: {user.email}")
+    return user
 
-# DEBUG ENDPOINT
-@router.get("/debug/google-config")
-async def debug_google_config():
-    """Debug endpoint to check Google OAuth configuration"""
+# --- Google OAuth Endpoints ---
+@router.get("/google/login", summary="Get Google OAuth URL")
+async def google_login():
+    """Generates and returns the Google OAuth URL with a state token for CSRF protection."""
+    logger.info("AuthRoutes: /google/login endpoint hit.")
+    auth_url = await auth_service.get_google_auth_url()
+    logger.info(f"AuthRoutes: /google/login returning auth_url: {auth_url[:100]}...")
+    return {"auth_url": auth_url}
+
+@router.get("/google/callback", summary="Handle Google OAuth Callback")
+async def google_callback(code: str = Query(...), state: str = Query(...)):
+    """Handles the Google callback, passing code and state to the service for verification."""
+    logger.info(f"AuthRoutes: /google/callback endpoint hit. Code: {code[:10]}..., State: {state}")
+    try:
+        result = await auth_service.handle_google_callback(code, state)
+        # FIX: Changed redirect_url path to match frontend's AuthComponent expectation
+        # Frontend AuthComponent's useEffect looks for 'token' in the URL after a redirect
+        # on the path it was redirected to. If your frontend callback is /auth/google/callback,
+        # then the backend should redirect to that same path.
+        redirect_url = f"{settings.frontend_url}/auth/google/callback?token={result['token']}"
+        logger.info(f"AuthRoutes: /google/callback successful. Redirecting to: {redirect_url[:100]}...")
+        return RedirectResponse(url=redirect_url, status_code=307) # Use 307 for temporary redirect
+    except HTTPException as e:
+        logger.error(f"AuthRoutes: Google auth callback failed: {e.detail}. Redirecting to error URL.")
+        return RedirectResponse(url=f"{settings.frontend_url}/auth/callback?error={e.detail}", status_code=307) # Use 307 for consistency
+
+# --- Simple Authentication Endpoints ---
+@router.post("/register", summary="Register a new user", response_model=Dict[str, Any])
+async def register(request: SimpleAuthRequest):
+    """Registers a new user with email, name, and password."""
+    logger.info(f"AuthRoutes: /register endpoint hit for email: {request.email}")
+    if not request.name:
+        logger.warning("AuthRoutes: Registration request missing name.")
+        raise HTTPException(status_code=422, detail="Name is required for registration.")
+    
+    result = await auth_service.register_user(
+        email=request.email, name=request.name, password=request.password
+    )
+    logger.info(f"AuthRoutes: /register successful for user {request.email}. Token: {result['token'][:10]}...")
     return {
-        "client_id": settings.google_client_id,
-        "redirect_uri": settings.google_redirect_uri,
-        "full_auth_url": (
-            f"https://accounts.google.com/o/oauth2/auth"
-            f"?client_id={settings.google_client_id}"
-            f"&redirect_uri={settings.google_redirect_uri}"
-            f"&scope=openid email profile"
-            f"&response_type=code"
-            f"&access_type=offline"
-        )
+        "user": result["user"],
+        "token": result["token"],
+        "message": "Registration successful",
     }
 
-# Google OAuth endpoints
-@router.get("/auth/google/login")
-async def google_login():
-    """Redirect to Google OAuth"""
-    if not settings.google_client_id:
-        raise HTTPException(status_code=500, detail="Google OAuth not configured")
-    
-    google_auth_url = (
-        f"https://accounts.google.com/o/oauth2/auth"
-        f"?client_id={settings.google_client_id}"
-        f"&redirect_uri={settings.google_redirect_uri}"
-        f"&scope=openid email profile"
-        f"&response_type=code"
-        f"&access_type=offline"
-    )
-    
-    logging.info(f"Google OAuth URL: {google_auth_url}")
-    logging.info(f"Redirect URI: {settings.google_redirect_uri}")
-    
-    return {"auth_url": google_auth_url}
-
-@router.get("/auth/google/callback")
-async def google_callback(code: str = Query(..., description="OAuth authorization code")):
-    """Handle Google OAuth callback"""
-    try:
-        logging.info(f"Processing callback with redirect_uri: {settings.google_redirect_uri}")
-        
-        if not all([settings.google_client_id, settings.google_client_secret]):
-            raise HTTPException(status_code=500, detail="Google OAuth not configured")
-        
-        async with httpx.AsyncClient() as http_client:
-            # Exchange code for tokens
-            token_data = {
-                "client_id": settings.google_client_id,
-                "client_secret": settings.google_client_secret,
-                "code": code,
-                "grant_type": "authorization_code",
-                "redirect_uri": settings.google_redirect_uri,
-            }
-            
-            logging.info(f"Token exchange data: {token_data}")
-            
-            token_response = await http_client.post(
-                "https://oauth2.googleapis.com/token",
-                data=token_data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"}
-            )
-            
-            logging.info(f"Token response status: {token_response.status_code}")
-            
-            if token_response.status_code != 200:
-                logging.error(f"Token exchange failed: {token_response.text}")
-                return RedirectResponse(url=f"{settings.frontend_url}?error=auth_failed")
-            
-            tokens = token_response.json()
-            access_token = tokens.get("access_token")
-            
-            if not access_token:
-                logging.error("No access token received")
-                return RedirectResponse(url=f"{settings.frontend_url}?error=no_token")
-            
-            # Get user info
-            user_response = await http_client.get(
-                "https://www.googleapis.com/oauth2/v2/userinfo",
-                headers={"Authorization": f"Bearer {access_token}"}
-            )
-            
-            if user_response.status_code != 200:
-                logging.error(f"User info fetch failed: {user_response.text}")
-                return RedirectResponse(url=f"{settings.frontend_url}?error=user_info_failed")
-            
-            user_info = user_response.json()
-            logging.info(f"User info received: {user_info.get('email')}")
-            
-            # Check if user exists
-            existing_user = await db.users.find_one({"email": user_info["email"]})
-            
-            if existing_user:
-                # Update session token
-                session_token = str(uuid.uuid4())
-                await db.users.update_one(
-                    {"email": user_info["email"]},
-                    {"$set": {"session_token": session_token}}
-                )
-                user_data = User(**existing_user)
-                user_data.session_token = session_token
-            else:
-                # Create new user
-                session_token = str(uuid.uuid4())
-                user_data = User(
-                    email=user_info["email"],
-                    name=user_info["name"],
-                    picture=user_info.get("picture"),
-                    session_token=session_token
-                )
-                await db.users.insert_one(user_data.dict())
-            
-            # Redirect back to frontend with auth data
-            frontend_url = f"{settings.frontend_url}?token={session_token}&user={user_info['email']}&name={user_info['name']}"
-            if user_info.get('picture'):
-                frontend_url += f"&picture={user_info['picture']}"
-            
-            return RedirectResponse(url=frontend_url)
-            
-    except HTTPException:
-        return RedirectResponse(url=f"{settings.frontend_url}?error=auth_failed")
-    except Exception as e:
-        logging.error(f"Google OAuth error: {str(e)}")
-        return RedirectResponse(url=f"{settings.frontend_url}?error=auth_failed")
-
-# Simple authentication endpoints
-@router.post("/auth/register")
-async def register(request: SimpleAuthRequest):
-    """Simple registration endpoint"""
-    try:
-        if not all([request.email, request.name]):
-            raise HTTPException(status_code=400, detail="Email and name are required")
-            
-        # Check if user exists
-        existing_user = await db.users.find_one({"email": request.email})
-        if existing_user:
-            raise HTTPException(status_code=400, detail="User already exists")
-        
-        # Create new user
-        session_token = str(uuid.uuid4())
-        user_data = User(
-            email=request.email,
-            name=request.name,
-            session_token=session_token
-        )
-        await db.users.insert_one(user_data.dict())
-        
-        return {
-            "user": user_data.dict(),
-            "token": session_token,
-            "message": "Registration successful"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logging.error(f"Registration error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Registration failed")
-
-@router.post("/auth/login")
+@router.post("/login", summary="Login a user", response_model=Dict[str, Any])
 async def login(request: SimpleAuthRequest):
-    """Simple login endpoint"""
-    try:
-        # Find user
-        user = await db.users.find_one({"email": request.email})
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-        
-        # Generate new session token
-        session_token = str(uuid.uuid4())
-        await db.users.update_one(
-            {"email": request.email},
-            {"$set": {"session_token": session_token}}
-        )
-        
-        user_data = User(**user)
-        user_data.session_token = session_token
-        
-        return {
-            "user": user_data.dict(),
-            "token": session_token,
-            "message": "Login successful"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logging.error(f"Login error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Login failed")
+    """Logs in a user with their email and password."""
+    logger.info(f"AuthRoutes: /login endpoint hit for email: {request.email}")
+    result = await auth_service.login_user(email=request.email, password=request.password)
+    logger.info(f"AuthRoutes: /login successful for user {request.email}. Token: {result['token'][:10]}...")
+    return {
+        "user": result["user"],
+        "token": result["token"],
+        "message": "Login successful",
+    }
 
-# Profile and onboarding
-@router.post("/onboarding")
-async def complete_onboarding(data: OnboardingData, user: User = Depends(get_current_user)):
-    """Complete user onboarding"""
-    try:
-        await db.users.update_one(
-            {"id": user.id},
-            {
-                "$set": {
-                    "business_type": data.business_type,
-                    "industry": data.industry,
-                    "product_service": data.product_service,
-                    "target_audience": data.target_audience,
-                    "campaign_goal": data.campaign_goal,
-                    "onboarding_completed": True
-                }
-            }
-        )
-        
-        return {"message": "Onboarding completed successfully"}
-    except Exception as e:
-        logging.error(f"Onboarding error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to save onboarding data")
-
-@router.get("/profile")
+# --- Profile and Onboarding Endpoints ---
+@router.get("/profile", summary="Get current user's profile", response_model=User)
 async def get_profile(user: User = Depends(get_current_user)):
-    """Get user profile"""
-    user_data = await db.users.find_one({"id": user.id})
-    if not user_data:
-        raise HTTPException(status_code=404, detail="User not found")
-    return User(**user_data)
+    """Returns the profile of the currently authenticated user."""
+    logger.info(f"AuthRoutes: /profile endpoint hit for user: {user.email}")
+    return user
 
-@router.put("/profile")
+@router.put("/profile", summary="Update user profile")
 async def update_profile(data: OnboardingData, user: User = Depends(get_current_user)):
-    """Update user profile"""
-    try:
-        await db.users.update_one(
-            {"id": user.id},
-            {
-                "$set": {
-                    "business_type": data.business_type,
-                    "industry": data.industry,
-                    "product_service": data.product_service,
-                    "target_audience": data.target_audience,
-                    "campaign_goal": data.campaign_goal
-                }
-            }
-        )
-        return {"message": "Profile updated successfully"}
-    except Exception as e:
-        logging.error(f"Update profile error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to update profile")
+    """Updates the profile information for the currently authenticated user."""
+    logger.info(f"AuthRoutes: /profile (PUT) endpoint hit for user: {user.email}. Data: {data.dict()}")
+    await auth_service.update_user(user_id=user.id, update_data=data.dict())
+    logger.info(f"AuthRoutes: User {user.email} profile updated successfully.")
+    return {"message": "Profile updated successfully"}
+
+@router.post("/onboarding", summary="Complete user onboarding")
+async def complete_onboarding(data: OnboardingData, user: User = Depends(get_current_user)):
+    """Completes the onboarding process for the user, marking it as complete."""
+    logger.info(f"AuthRoutes: /onboarding endpoint hit for user: {user.email}. Data: {data.dict()}")
+    update_payload = data.dict()
+    update_payload.update({
+        "onboarding_completed": True,
+        "onboarding_date": datetime.utcnow()
+    })
+    await auth_service.update_user(user_id=user.id, update_data=update_payload)
+    logger.info(f"AuthRoutes: User {user.email} onboarding completed successfully.")
+    return {"message": "Onboarding completed successfully"}

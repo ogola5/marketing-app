@@ -1,8 +1,11 @@
+// src/components/OnboardingComponent.js
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useAuth } from './AuthComponent';
 
-const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+// CORRECTED: API should only contain the base URL to your backend
+// The full path will be constructed when making the request.
+const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'; 
 
 export const OnboardingComponent = () => {
   const { user, fetchProfile } = useAuth();
@@ -53,10 +56,13 @@ export const OnboardingComponent = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API}/api/onboarding`, formData, {
+      
+      // CORRECTED: Build the full path using the base API and the correct endpoint
+      await axios.post(`${API}/api/auth/onboarding`, formData, { // THIS IS THE KEY CHANGE
         headers: { Authorization: `Bearer ${token}` }
       });
-      await fetchProfile();
+
+      await fetchProfile(); // This will re-fetch the user profile, which should now show onboarding_completed: true
     } catch (error) {
       console.error('Onboarding failed:', error);
       alert('Onboarding failed. Please try again.');
