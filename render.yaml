@@ -1,17 +1,12 @@
 services:
   - type: web
-    name: marketing-backend
+    name: marketing-app
     env: python
     region: oregon
-    buildCommand: pip install -r backend/requirements.txt
+    buildCommand: |
+      pip install -r backend/requirements.txt
+      cd frontend && yarn install && yarn build
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PORT
         value: 10000
-
-  - type: web
-    name: marketing-frontend
-    env: node
-    region: oregon
-    buildCommand: cd frontend && yarn install && yarn build
-    startCommand: serve -s frontend/build
