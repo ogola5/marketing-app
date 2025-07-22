@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: marketing-backend
+    name: marketing-app
     env: python
     region: oregon
     buildCommand: pip install -r backend/requirements.txt && cd frontend && yarn install && yarn build
