@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # Google OAuth Configuration
     google_client_id: Optional[str] = os.environ.get("GOOGLE_CLIENT_ID")
     google_client_secret: Optional[str] = os.environ.get("GOOGLE_CLIENT_SECRET")
-    google_redirect_uri: str = "http://localhost:8001/api/auth/google/callback"
+    google_redirect_uri: str = "https://marketing-app-1.onrender.com/api/auth/google/callback"
     
     # Email Configuration
     sender_email: Optional[str] = os.environ.get("SENDER_EMAIL")
