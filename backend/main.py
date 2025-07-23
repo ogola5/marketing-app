@@ -142,6 +142,8 @@ from routes.domain import router as domain_router
 from routes.seo import router as seo_router
 from routes.system import router as system_router
 
+import os
+
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
@@ -170,19 +172,28 @@ app.add_middleware(
 )
 
 # Static Frontend Serving
-frontend_path = Path(__file__).resolve().parent.parent / "frontend" / "build"
-if frontend_path.exists():
-    app.mount("/static", StaticFiles(directory=frontend_path / "static"), name="static")
+# frontend_path = Path(__file__).resolve().parent.parent / "frontend" / "build"
+# if frontend_path.exists():
+#     app.mount("/static", StaticFiles(directory=frontend_path / "static"), name="static")
 
-    @app.get("/{full_path:path}")
-    async def serve_react_app(full_path: str):
-        index_file = frontend_path / "index.html"
-        if index_file.exists():
-            return FileResponse(index_file)
-        return {"detail": "Frontend build not found"}
-else:
-    logging.warning("⚠️ Frontend build directory not found. Skipping static file serving.")
+#     @app.get("/{full_path:path}")
+#     async def serve_react_app(full_path: str):
+#         index_file = frontend_path / "index.html"
+#         if index_file.exists():
+#             return FileResponse(index_file)
+#         return {"detail": "Frontend build not found"}
+# else:
+#     logging.warning("⚠️ Frontend build directory not found. Skipping static file serving.")
+# Serve static files (React build)
+# app.mount("/static", StaticFiles(directory="frontend_build/static"), name="static")
 
+# # Serve the index.html for all frontend routes
+# @app.get("/{full_path:path}")
+# async def serve_react_app(full_path: str):
+#     index_path = os.path.join("frontend_build", "index.html")
+#     if os.path.exists(index_path):
+#         return FileResponse(index_path)
+#     return {"error": "index.html not found"}
 # Events
 @app.on_event("startup")
 async def startup_event():
@@ -215,4 +226,4 @@ async def root():
 # Only for local dev use
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)
