@@ -35,11 +35,11 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     
     # Frontend Configuration
-    frontend_url: str = "http://localhost:3000"
+    frontend_url: str = "marketing-app-mu.vercel.app"
     
     # CORS Configuration
     allowed_origins: list = [
-        "http://localhost:3000",
+        "marketing-app-mu.vercel.app",
         "http://127.0.0.1:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3001",

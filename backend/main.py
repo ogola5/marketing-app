@@ -48,30 +48,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Static Frontend Serving
-# frontend_path = Path(__file__).resolve().parent.parent / "frontend" / "build"
-# if frontend_path.exists():
-#     app.mount("/static", StaticFiles(directory=frontend_path / "static"), name="static")
 
-#     @app.get("/{full_path:path}")
-#     async def serve_react_app(full_path: str):
-#         index_file = frontend_path / "index.html"
-#         if index_file.exists():
-#             return FileResponse(index_file)
-#         return {"detail": "Frontend build not found"}
-# else:
-#     logging.warning("⚠️ Frontend build directory not found. Skipping static file serving.")
-# Serve static files (React build)
-# app.mount("/static", StaticFiles(directory="frontend_build/static"), name="static")
-
-# # Serve the index.html for all frontend routes
-# @app.get("/{full_path:path}")
-# async def serve_react_app(full_path: str):
-#     index_path = os.path.join("frontend_build", "index.html")
-#     if os.path.exists(index_path):
-#         return FileResponse(index_path)
-#     return {"error": "index.html not found"}
-# Events
 @app.on_event("startup")
 async def startup_event():
     logging.info(f"🚀 Starting {settings.app_name} v{settings.app_version}")
