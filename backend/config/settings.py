@@ -54,7 +54,8 @@ class Settings(BaseSettings):
     allowed_origins: list = (
         [
             "https://vercel.com/ogola5s-projects/marketing-app",
-            "https://marketing-app-1.onrender.com"
+            "https://marketing-app-1.onrender.com",
+            "https://marketing-iylh2bkfu-ogola5s-projects.vercel.app"  # ADD THIS
         ]
         if os.environ.get("ENV") == "production"
         else [
