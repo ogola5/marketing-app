@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import axios from 'axios';
 
-const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://marketing-app-1.onrender.com';
 
 const useApi = () => {
   const getToken = () => localStorage.getItem('token');

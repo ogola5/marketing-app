@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAuth } from './AuthComponent';
 import { CampaignModal } from './CampaignModal';
 
-const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://marketing-app-1.onrender.com';
 
 export const DashboardComponent = () => {
   const { user, logout } = useAuth();

@@ -5,7 +5,7 @@ import { useAuth } from './AuthComponent';
 
 // CORRECTED: API should only contain the base URL to your backend
 // The full path will be constructed when making the request.
-const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'; 
+const API = process.env.REACT_APP_BACKEND_URL || 'https://marketing-app-1.onrender.com/'; 
 
 export const OnboardingComponent = () => {
   const { user, fetchProfile } = useAuth();

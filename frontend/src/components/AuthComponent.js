@@ -3,7 +3,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import axios from 'axios';
 
 // --- Configuration ---
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001/api'; // Ensure this matches your backend prefix
+const API_URL = process.env.REACT_APP_API_URL || 'https://marketing-app-1.onrender.com/api'; // Ensure this matches your backend prefix
 axios.defaults.baseURL = API_URL;
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 

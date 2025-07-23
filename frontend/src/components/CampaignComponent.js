@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { CampaignModal } from './CampaignModal';
 
-const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+const API = process.env.REACT_APP_BACKEND_URL || 'https://marketing-app-1.onrender.com';
 
 const CampaignComponent = () => {
   const [campaigns, setCampaigns] = useState([]);
